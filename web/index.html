@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmoxtliLex · Códice de Legislación Mexicana</title>
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
+
+/* ───────────────────────────────────────────────
+   Muted botanical · solid panels · ink borders
+   No glassmorphism, no gradients, no emoji.
+   ─────────────────────────────────────────────── */
+:root {
+  --cream:      #f7f1e6;
+  --warm-white: #fbf7ef;
+  --panel:      #f4ecdd;
+  --sand:       #ece0ca;
+  --earth:      #b98a5e;
+  --terracotta: #b0674a;
+  --sage:       #7a9c81;
+  --forest:     #4f6b4d;
+  --deep-green: #38503a;
+  --ocean:      #35766a;
+  --golden:     #b98a2e;
+  --text:       #33291f;
+  --text-soft:  #63564a;
+  --text-faint: #9c8b74;
+  --ink-border: #cdbfa4;
+  --ink-line:   #b7a684;
+  --shadow:     0 1px 2px rgba(60,40,20,0.06);
+  --shadow-lg:  0 3px 14px rgba(60,40,20,0.10);
+}
+
+* { margin:0; padding:0; box-sizing:border-box }
+html { font-size: 16px; -webkit-font-smoothing: antialiased }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  overflow: hidden; height: 100vh; width: 100vw;
+}
+
+/* Subtle paper grain, no bright glows */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+#graph { position:fixed; inset:0; z-index:1 }
+
+/* ── Header ── */
+.header {
+  position: fixed; top: 22px; left: 24px; z-index: 30;
+  display: flex; align-items: center; gap: 13px;
+}
+.header-mark {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--forest); color: var(--cream);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--deep-green); box-shadow: var(--shadow);
+}
+.header-mark svg { width: 22px; height: 22px; }
+.header h1 {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 22px; font-weight: 500; letter-spacing: -0.2px; color: var(--deep-green);
+}
+.header-sub {
+  font-size: 10.5px; color: var(--text-soft); letter-spacing: 0.4px; font-weight: 450;
+}
+
+/* ── Level dots ── */
+.level-indicator {
+  position: fixed; top: 28px; right: 28px; z-index: 30;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; color: var(--text-soft); font-weight: 500;
+}
+.level-dots { display: flex; gap: 5px; }
+.level-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-line); transition: all 0.4s ease; }
+.level-dot.on { background: var(--forest); width: 8px; height: 8px; }
+
+/* ── Back ── */
+.back-btn {
+  position: fixed; top: 50%; left: 14px; transform: translateY(-50%); z-index: 30;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--warm-white); border: 1px solid var(--ink-border); cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  font-size: 15px; color: var(--text-soft); box-shadow: var(--shadow); transition: all 0.2s;
+}
+.back-btn:hover { color: var(--forest); border-color: var(--forest); }
+.back-btn.on { display: flex; }
+
+/* ── Legend ── */
+.legend {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 94vw;
+  background: var(--panel); border: 1px solid var(--ink-border); border-radius: 10px;
+  padding: 5px 12px; box-shadow: var(--shadow);
+}
+.legend-item {
+  padding: 5px 10px; font-size: 10.5px; color: var(--text-soft);
+  border-radius: 6px; cursor: pointer; white-space: nowrap;
+  transition: all 0.2s; font-weight: 450; display: flex; align-items: center; gap: 5px;
+}
+.legend-item:hover { background: var(--sand); color: var(--text); }
+.legend-item.on { background: var(--sand); color: var(--deep-green); font-weight: 550; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #aaa); }
+
+/* ── Search ── */
+.search-wrap {
+  position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 30;
+  width: min(440px, 56vw);
+}
+.search-input {
+  width: 100%; padding: 11px 18px;
+  background: var(--warm-white); border: 1px solid var(--ink-border); border-radius: 9px;
+  font-family: inherit; font-size: 13px; color: var(--text);
+  outline: none; box-shadow: var(--shadow); transition: border-color 0.2s;
+}
+.search-input::placeholder { color: var(--text-faint); }
+.search-input:focus { border-color: var(--forest); }
+.search-results {
+  display: none; margin-top: 6px;
+  background: var(--warm-white); border: 1px solid var(--ink-border); border-radius: 10px;
+  max-height: 340px; overflow-y: auto; box-shadow: var(--shadow-lg);
+}
+.search-results.on { display: block; }
+.search-r { padding: 10px 16px; border-bottom: 1px solid var(--ink-border); cursor: pointer; transition: background 0.15s; }
+.search-r:hover { background: var(--panel); }
+.search-r:last-child { border-bottom: none; }
+.search-r .r-law { color: var(--forest); font-weight: 550; font-size: 11.5px; margin-bottom: 2px; }
+.search-r .r-text { font-size: 12px; color: var(--text-soft); line-height: 1.45; }
+.search-r .r-score { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+.search-pager {
+  padding: 8px 16px; font-size: 10.5px; color: var(--text-faint);
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--ink-border); background: var(--panel);
+}
+.search-pager .hint { color: var(--forest); font-weight: 500; }
+
+/* ── Entity legend ── */
+.entity-legend {
+  position: fixed; bottom: 66px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; gap: 12px;
+  background: var(--panel); border: 1px solid var(--ink-border); border-radius: 8px;
+  padding: 5px 14px; box-shadow: var(--shadow);
+}
+.entity-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-soft); font-weight: 450; }
+.entity-dot { width: 7px; height: 7px; border-radius: 2px; background: var(--ec, #aaa); }
+
+/* ── Info panel ── */
+.info-panel {
+  position: fixed; top: 50%; right: -360px; transform: translateY(-50%); z-index: 25; width: 300px;
+  background: var(--warm-white); border: 1px solid var(--ink-border); border-radius: 12px;
+  padding: 22px; transition: right 0.35s cubic-bezier(0.16,1,0.3,1); box-shadow: var(--shadow-lg);
+}
+.info-panel.open { right: 22px; }
+.info-panel h3 { font-family: 'Newsreader', Georgia, serif; font-size: 17px; font-weight: 550; line-height: 1.3; color: var(--deep-green); }
+.info-type { font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 500; margin: 4px 0 14px; }
+.info-body { font-size: 12px; line-height: 1.6; color: var(--text-soft); }
+.info-body strong { color: var(--text); font-weight: 600; }
+.info-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 16px; }
+.info-close:hover { color: var(--text); }
+
+/* ── Chat (ChatGPT-style drawer) ── */
+.chat-trigger {
+  position: fixed; bottom: 24px; right: 22px; z-index: 31;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: 9px;
+  background: var(--forest); color: var(--cream); border: 1px solid var(--deep-green);
+  cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow-lg); transition: background 0.2s;
+}
+.chat-trigger:hover { background: var(--deep-green); }
+.chat-trigger svg { width: 16px; height: 16px; }
+
+.chat-panel {
+  position: fixed; top: 0; right: -520px; height: 100vh; width: min(460px, 96vw); z-index: 40;
+  background: var(--warm-white); border-left: 1px solid var(--ink-border);
+  display: flex; flex-direction: column; box-shadow: -6px 0 30px rgba(60,40,20,0.12);
+  transition: right 0.35s cubic-bezier(0.16,1,0.3,1);
+}
+.chat-panel.on { right: 0; }
+.chat-header {
+  padding: 18px 20px; border-bottom: 1px solid var(--ink-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.chat-title { font-family: 'Newsreader', Georgia, serif; font-size: 17px; font-weight: 550; color: var(--deep-green); }
+.chat-header .meta { display: flex; align-items: center; gap: 10px; }
+.chat-badge { font-size: 9.5px; background: var(--sand); color: var(--forest); padding: 3px 9px; border-radius: 5px; font-weight: 550; letter-spacing: 0.3px; }
+.chat-x { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 20px; line-height: 1; }
+.chat-x:hover { color: var(--text); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 22px 20px; display: flex; flex-direction: column; gap: 18px; }
+.chat-turn { display: flex; gap: 12px; }
+.chat-turn.user { flex-direction: row-reverse; }
+.chat-av {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Newsreader', serif; font-size: 13px; font-weight: 600;
+}
+.chat-turn.bot .chat-av { background: var(--forest); color: var(--cream); }
+.chat-turn.user .chat-av { background: var(--sand); color: var(--text-soft); border: 1px solid var(--ink-border); }
+.chat-bubble { font-size: 13.5px; line-height: 1.62; color: var(--text); max-width: 80%; }
+.chat-turn.user .chat-bubble {
+  background: var(--panel); border: 1px solid var(--ink-border);
+  padding: 10px 14px; border-radius: 10px; color: var(--text-soft);
+}
+.chat-bubble strong { color: var(--deep-green); font-weight: 600; }
+.chat-bubble ul { margin: 6px 0; padding-left: 18px; }
+.chat-bubble li { margin-bottom: 3px; }
+.chat-bubble.thinking { color: var(--text-faint); font-style: italic; }
+.chat-row { padding: 14px 18px 18px; border-top: 1px solid var(--ink-border); display: flex; gap: 10px; align-items: flex-end; }
+.chat-row textarea {
+  flex: 1; padding: 11px 14px; border: 1px solid var(--ink-border); border-radius: 9px;
+  font-family: inherit; font-size: 13px; color: var(--text); outline: none;
+  background: var(--cream); resize: none; max-height: 120px; line-height: 1.5;
+}
+.chat-row textarea:focus { border-color: var(--forest); }
+.chat-row button {
+  width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0;
+  background: var(--forest); border: 1px solid var(--deep-green); color: var(--cream);
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.chat-row button:hover:not(:disabled) { background: var(--deep-green); }
+.chat-row button:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Loading ── */
+.loading { position: fixed; inset:0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--cream); }
+.loading-content { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.loading-spinner { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--ink-border); border-top-color: var(--forest); animation: spin 0.9s infinite linear; }
+@keyframes spin { to { transform: rotate(360deg) } }
+.loading-text { font-size: 13px; color: var(--text-soft); }
+
+::-webkit-scrollbar { width: 6px }
+::-webkit-scrollbar-thumb { background: var(--ink-border); border-radius: 3px }
+</style>
+</head>
+<body>
+
+<div id="graph"></div>
+
+<header class="header">
+  <div class="header-mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 21c0-6 0-10 0-16"/><path d="M12 8c3-4 7-4 8-4 0 4-1 8-8 8"/><path d="M12 12c-3-3-6-3-7-3 0 3 1 6 7 6"/>
+    </svg>
+  </div>
+  <div>
+    <h1>AmoxtliLex</h1>
+    <div class="header-sub">Códice de Legislación Mexicana</div>
+  </div>
+</header>
+
+<div class="level-indicator">
+  <div class="level-dots"><div class="level-dot on" id="ld0"></div><div class="level-dot" id="ld1"></div></div>
+  <span id="lev-label">Continentes</span>
+</div>
+
+<button class="back-btn" id="back-btn">←</button>
+
+<div class="legend" id="legend"></div>
+<div class="entity-legend" id="entity-legend">
+  <span class="entity-legend-item"><span class="entity-dot" style="--ec:#4f6b4d;border-radius:50%"></span>Ley</span>
+  <span class="entity-legend-item"><span class="entity-dot" style="--ec:#35766a"></span>Institución</span>
+  <span class="entity-legend-item"><span style="width:16px;border-top:1.5px dashed #4f6b4d;display:inline-block"></span>Cita otra ley</span>
+</div>
+
+<div class="search-wrap">
+  <input class="search-input" id="search" type="text" placeholder="Buscar por significado — Enter para paginar…" autocomplete="off">
+  <div class="search-results" id="search-res"></div>
+</div>
+
+<button class="chat-trigger" id="chat-trigger">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  Consultar
+</button>
+
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span class="chat-title">Asistente Jurídico</span>
+    <div class="meta"><span class="chat-badge">DeepSeek</span><button class="chat-x" id="chat-x">×</button></div>
+  </div>
+  <div class="chat-messages" id="chat-msgs"></div>
+  <div class="chat-row">
+    <textarea id="chat-input" rows="1" placeholder="Pregunta sobre cualquier ley mexicana…"></textarea>
+    <button id="chat-send">→</button>
+  </div>
+</div>
+
+<div class="info-panel" id="info">
+  <button class="info-close" id="info-close">×</button>
+  <h3 id="info-title"></h3>
+  <div class="info-type" id="info-type"></div>
+  <div class="info-body" id="info-body"></div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="loading-content"><div class="loading-spinner"></div><div class="loading-text">Cargando el Códice…</div></div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   AmoxtliLex · graph + semantic search + chat
+   ════════════════════════════════════════════════ */
+let net = null, lvl0 = null, cur = null, curLvl = 0, hist = [], topics = {};
+
+const TYPE = { continent:'Continente', law:'Ley', persona:'Persona', org:'Organismo', topic:'Tema', concept:'Concepto' };
+
+function physicsOff(){ net?.setOptions({physics:{enabled:false}}); }
+function physicsOn(light){
+  net?.setOptions({physics:{ enabled:true, solver:'forceAtlas2Based',
+    forceAtlas2Based:{ gravitationalConstant: light?-20:-50, centralGravity: light?0.001:0.003,
+      springLength:140, springConstant: light?0.004:0.01, damping:0.7 },
+    maxVelocity: light?1.5:5, minVelocity:0.1, stabilization:{iterations:30} }});
+}
+
+function buildGraph(d){
+  if (net){ net.destroy(); net=null; }
+  const nodes = new vis.DataSet((d.nodes||[]).map(n => ({
+    id:n.id, label:n.label, title:n.title||n.description||'', group:n.group,
+    size:n.size||12, value:n.value||0, continent_id:n.continent_id, continent_label:n.continent_label,
+    color: n.color || {background:'#aaa',border:'#8a7a5a'},
+    font:{ color:'#33291f', size:n.group==='continent'?13:n.group==='law'?10:8, face:'Inter',
+      strokeWidth:3, strokeColor:'rgba(247,241,230,0.85)' },
+    borderWidth:1, borderWidthSelected:2,
+    shape: n.group==='continent'?'dot':n.group==='law'?'hexagon':'dot',
+  })));
+  const edges = new vis.DataSet((d.edges||[]).map(e => {
+    const ref = e.label==='referencia';   // law → law citation
+    return {
+      from:e.from, to:e.to, dashes: ref?[3,4]:false,
+      color: ref ? {color:'rgba(79,107,77,0.35)',hover:'rgba(56,80,58,0.7)',inherit:false}
+                 : {color:'rgba(150,130,100,0.13)',hover:'rgba(53,118,106,0.5)',inherit:false},
+      width: ref?0.9:0.6, hoverWidth:1.8, smooth:{type:'continuous',roundness:0.35},
+    };
+  }));
+  net = new vis.Network(document.getElementById('graph'), {nodes,edges}, {
+    physics:{enabled:true,solver:'forceAtlas2Based',
+      forceAtlas2Based:{gravitationalConstant:-45,centralGravity:0.003,springLength:170,springConstant:0.008,damping:0.65},
+      stabilization:{iterations:100,updateInterval:15}, maxVelocity:3,minVelocity:0.08 },
+    interaction:{hover:true,tooltipDelay:300,dragNodes:true},
+    nodes:{scaling:{min:5,max:55}},
+  });
+  net.once('stabilized', ()=> setTimeout(physicsOff,100));
+  net.on('dragStart', ()=> physicsOn(false));
+  net.on('dragEnd', ()=> setTimeout(physicsOff,600));
+  net.on('hoverNode', ()=> physicsOn(true));
+  net.on('blurNode', ()=> setTimeout(physicsOff,400));
+  net.on('click', p=>{ if(p.nodes.length){ const n=(d.nodes||[]).find(x=>x.id===p.nodes[0]); if(n) handleClick(n); } });
+  cur = d;
+}
+
+function setLvl(l,lab){
+  curLvl=l;
+  document.getElementById('ld0').classList.toggle('on',l>=0);
+  document.getElementById('ld1').classList.toggle('on',l>=1);
+  document.getElementById('lev-label').textContent=lab;
+  document.getElementById('back-btn').classList.toggle('on',hist.length>0);
+}
+function handleClick(n){
+  if (curLvl===0 && n.group==='continent' && n.continent_id) loadContinent(n.continent_id, n.label);
+  else showInfo(n);
+}
+async function loadLvl0(){
+  hist=[];
+  let d = lvl0;
+  if (!d){ const r=await fetch('/api/graph/level0'); d=await r.json(); lvl0=d; }
+  buildGraph(d); setLvl(0,'Continentes'); updateLegend(null);
+}
+async function loadContinent(cid,label){
+  const ld=document.getElementById('loading'); ld.style.display='flex';
+  ld.querySelector('.loading-text').textContent=`Cargando ${label}…`;
+  hist.push({level:0});
+  const r=await fetch(`/api/graph/continent/${encodeURIComponent(cid)}`); const d=await r.json();
+  d.nodes.forEach(n=>{if(n.group==='law'){n.continent_label=label;n.continent_id=cid;}});
+  buildGraph(d); setLvl(1,label); updateLegend(cid); ld.style.display='none';
+  setTimeout(()=>{ const ids=d.nodes.filter(n=>n.group==='law').map(n=>n.id);
+    if(ids.length) net.fit({nodes:ids,animation:{duration:600,easingFunction:'easeInOutQuad'}}); },300);
+}
+document.getElementById('back-btn').addEventListener('click',async()=>{
+  if(hist.length){hist.pop();await loadLvl0();document.getElementById('info').classList.remove('open')}
+});
+
+async function showInfo(n){
+  document.getElementById('info-title').textContent=n.label;
+  document.getElementById('info-type').textContent=TYPE[n.group]||n.group;
+  const body=document.getElementById('info-body');
+  document.getElementById('info').classList.add('open');
+  if(n.group==='continent'){ body.innerHTML=`<p>${n.value||'—'} leyes en esta materia.</p><p style="margin-top:6px">Explora para ver el grafo.</p>`; return; }
+  if(n.group!=='law'){ body.innerHTML=`<p><strong>Institución.</strong> Mencionada en ${n.value||'—'} leyes.</p>`; return; }
+  body.innerHTML='<p style="color:var(--text-faint)">Cargando…</p>';
+  let d={}; try{ d=await fetch(`/api/law/${encodeURIComponent(n.title||n.label)}`).then(r=>r.json()); }catch(e){}
+  const list=(arr,max=12)=>arr&&arr.length?`<ul>${arr.slice(0,max).map(x=>`<li>${esc(x)}</li>`).join('')}${arr.length>max?`<li style="color:var(--text-faint)">+${arr.length-max} más…</li>`:''}</ul>`:' <span style="color:var(--text-faint)">—</span>';
+  const abro=d.abrogates||[];
+  body.innerHTML=`<p><strong>Materia:</strong> ${esc(d.materia||n.continent_label||'—')}</p>`
+    +(abro.length?`<p style="margin-top:8px"><strong>Reemplaza a (abroga):</strong></p>${list(abro,6)}`:'')
+    +`<p style="margin-top:8px"><strong>Leyes que cita (${(d.references||[]).length}):</strong></p>${list(d.references)}`
+    +`<p style="margin-top:8px"><strong>Instituciones (${(d.institutions||[]).length}):</strong></p>${list(d.institutions,10)}`;
+}
+document.getElementById('info-close').addEventListener('click',()=>document.getElementById('info').classList.remove('open'));
+
+function buildLegend(){
+  const el=document.getElementById('legend'); el.innerHTML='';
+  const a=document.createElement('span'); a.className='legend-item on'; a.textContent='Todos'; a.onclick=loadLvl0; el.appendChild(a);
+  Object.entries(topics.continents||{}).sort((a,b)=>b[1].size-a[1].size).forEach(([tid,c])=>{
+    const it=document.createElement('span'); it.className='legend-item';
+    it.innerHTML=`<span class="legend-dot" style="--dot-color:#${c.color||'aaa'}"></span>${c.label}`;
+    it.title=`${c.size} leyes`; it.onclick=()=>loadContinent(tid,c.label); it.setAttribute('data-tid',tid);
+    el.appendChild(it);
+  });
+}
+function updateLegend(tid){
+  document.querySelectorAll('.legend-item').forEach(el=>{
+    el.classList.toggle('on',(!tid&&!el.getAttribute('data-tid'))||el.getAttribute('data-tid')===tid);
+  });
+}
+
+/* ── Semantic search + Enter-to-paginate ── */
+const PAGE=6;
+let searchAll=[], searchPage=0;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function renderSearch(){
+  const e=document.getElementById('search-res');
+  if(!searchAll.length){ e.innerHTML='<div style="padding:18px;text-align:center;color:var(--text-faint)">Sin resultados</div>'; e.classList.add('on'); return; }
+  const pages=Math.ceil(searchAll.length/PAGE);
+  const slice=searchAll.slice(searchPage*PAGE,(searchPage+1)*PAGE);
+  let html=slice.map(r=>`<div class="search-r" onclick="searchSel('${r.law.replace(/'/g,"\\'")}')">
+    <div class="r-law">${esc(r.law)}</div><div class="r-text">${esc(r.text.slice(0,150))}</div>
+    <div class="r-score">Similitud · ${r.score}</div></div>`).join('');
+  html+=`<div class="search-pager"><span>${searchAll.length} resultados · pág. ${searchPage+1}/${pages}</span>`
+      + (pages>1?`<span class="hint">Enter → siguiente</span>`:'')+`</div>`;
+  e.innerHTML=html; e.classList.add('on');
+}
+async function searchQ(q){
+  const r=await fetch(`/api/search?q=${encodeURIComponent(q)}&k=40`); const d=await r.json();
+  searchAll=d.results||[]; searchPage=0; renderSearch();
+}
+let st; const searchEl=document.getElementById('search');
+searchEl.addEventListener('input',()=>{
+  clearTimeout(st); const q=searchEl.value.trim();
+  if(q.length<2){document.getElementById('search-res').classList.remove('on');return}
+  st=setTimeout(()=>searchQ(q),300);
+});
+searchEl.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return; e.preventDefault();
+  if(!searchAll.length){ if(searchEl.value.trim().length>=2) searchQ(searchEl.value.trim()); return; }
+  const pages=Math.ceil(searchAll.length/PAGE);
+  searchPage=(searchPage+1)%pages; renderSearch();
+});
+async function searchSel(name){
+  document.getElementById('search-res').classList.remove('on'); document.getElementById('search').value=name; let tid=null;
+  for(const[ln,t]of Object.entries(topics.law_topics||{})){if(ln.includes(name)||name.includes(ln)){tid=t;break}}
+  if(tid&&curLvl!==1) await loadContinent(tid,topics.continents?.[tid]?.label||'');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))document.getElementById('search-res').classList.remove('on')});
+
+/* ── Chat (DeepSeek, graph-grounded) ── */
+const chatHistory=[];
+const mdLite=s=>esc(s)
+  .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+  .replace(/^\s*[-•]\s+(.*)$/gm,'<li>$1</li>')
+  .replace(/(<li>.*<\/li>\n?)+/g,m=>`<ul>${m.replace(/\n/g,'')}</ul>`)
+  .replace(/\n/g,'<br>');
+
+const panel=document.getElementById('chat-panel');
+document.getElementById('chat-trigger').addEventListener('click',()=>{
+  panel.classList.add('on'); document.getElementById('chat-input').focus();
+  if(!document.getElementById('chat-msgs').children.length) addTurn('bot','Pregunta sobre cualquier ley mexicana. Uso el grafo de conocimiento para responder con precisión.');
+});
+document.getElementById('chat-x').addEventListener('click',()=>panel.classList.remove('on'));
+
+function addTurn(role,html){
+  const msgs=document.getElementById('chat-msgs');
+  const turn=document.createElement('div'); turn.className=`chat-turn ${role}`;
+  const av=role==='user'?'Tú':'A';
+  turn.innerHTML=`<div class="chat-av">${av}</div><div class="chat-bubble">${html}</div>`;
+  msgs.appendChild(turn); msgs.scrollTop=msgs.scrollHeight;
+  return turn.querySelector('.chat-bubble');
+}
+const chatInput=document.getElementById('chat-input');
+chatInput.addEventListener('input',()=>{ chatInput.style.height='auto'; chatInput.style.height=Math.min(chatInput.scrollHeight,120)+'px'; });
+chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
+document.getElementById('chat-send').addEventListener('click',sendChat);
+
+async function sendChat(){
+  const msg=chatInput.value.trim(); if(!msg)return;
+  addTurn('user',esc(msg)); chatInput.value=''; chatInput.style.height='auto';
+  const send=document.getElementById('chat-send'); send.disabled=true;
+  const bubble=addTurn('bot',''); bubble.classList.add('thinking'); bubble.textContent='Consultando el grafo…';
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg,history:chatHistory})});
+    const d=await r.json();
+    bubble.classList.remove('thinking'); bubble.innerHTML=mdLite(d.response||'Sin respuesta.');
+    chatHistory.push({role:'user',content:msg},{role:'assistant',content:d.response||''});
+  }catch(e){ bubble.classList.remove('thinking'); bubble.innerHTML='<span style="color:#b0674a">Error de conexión.</span>'; }
+  send.disabled=false; document.getElementById('chat-msgs').scrollTop=1e9;
+}
+
+/* ── Init ── */
+async function init(){
+  try{ topics=await fetch('/api/topics').then(r=>r.json()); }catch(e){ return; }
+  buildLegend(); await loadLvl0();
+  document.getElementById('loading').style.display='none';
+}
+init();
+</script>
+</body>
+</html>

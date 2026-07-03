@@ -1,0 +1,18 @@
+# Corpus fuente (300+ MB). No se versiona: ver README → "Reconstruir los índices".
+datos/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Entorno / secretos
+.env
+*.log
+
+# Herramientas locales
+.claude/
+.DS_Store
