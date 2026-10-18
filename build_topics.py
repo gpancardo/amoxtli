@@ -108,6 +108,9 @@ CONTINENTS = [
         'biodiversidad': 8, 'áreas naturales protegidas': 8,
         'impacto ambiental': 8, 'vida silvestre': 7,
         'energía para el campo': 8, 'electrificación rural': 7,
+        'minera': 9, 'minería': 9, 'minero': 8, 'yacimientos': 8,
+        'subsuelo': 8, 'reservas mineras': 9, 'hidrocarburos': 8,
+        'petróleo': 7, 'petróleos': 7, 'nuclear': 7, 'geología': 6,
     }),
     ('salud', 'Derecho Sanitario y Asistencial', '74b9ff', {
         'salud': 10, 'sanitario': 9, 'sanidad': 8,
@@ -132,6 +135,7 @@ CONTINENTS = [
         'patrimonio cultural': 7, 'bellas artes': 7,
         'propiedad intelectual': 7, 'derechos de autor': 7,
         'ciencia y tecnología': 9,
+        'cinematografía': 9, 'cine': 7, 'cinematográfica': 8,
     }),
     ('comunicaciones', 'Derecho de Comunicaciones y Transporte', 'E8A838', {
         'telecomunicaciones': 10, 'comunicaciones': 9,
@@ -231,20 +235,22 @@ def classify_law(name, tf_dict):
                             'aplicable', 'aplicables', 'previsto', 'prevista'}:
                     tf_words[w] = freq
     
+    # Whole-word matching: naive substring made 'ine' (INE, electoral) match
+    # "cinematografía" and "minera", dumping them into Derecho Electoral.
+    tf_text = ' ' + ' '.join(w for w, _ in tf_words.most_common(30)) + ' '
+
     best_score = 0
     best_continent = None
-    
+
     for cid, clabel, ccolor, keywords in CONTINENTS:
         score = 0
         for kw, weight in keywords.items():
-            # Buscar en nombre (señal más fuerte)
-            if kw in name_lower:
+            pat = re.compile(r'\b' + re.escape(kw) + r'\b')
+            if pat.search(name_lower):          # nombre: señal más fuerte
                 score += weight * 3
-            # Buscar en vocabulario distintivo (señal secundaria)
-            for tw, freq in tf_words.most_common(30):
-                if kw in tw or tw in kw:
-                    score += weight * 0.5
-    
+            if pat.search(tf_text):             # vocabulario distintivo: señal secundaria
+                score += weight * 0.5
+
         if score > best_score:
             best_score = score
             best_continent = (cid, clabel, ccolor)

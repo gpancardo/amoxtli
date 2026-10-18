@@ -10,12 +10,11 @@ Signal, not noise:
   - Drops signatory names, dates and generic topic words entirely.
 
 Outputs (consumed by server.py):
-  graph.json          full graph (law + institution nodes, edges)
-  graph_multi.json    {level0: continent nodes, full: graph}
-  graph_levels.json   {continents: {cid: [law nodes]}, law_topics}
+  graph.json          full graph (law + institution nodes, citation/regula edges);
+                      law nodes carry semantic-cluster color + UMAP seed positions
   laws_index.json     per-law {name, materia, references, institutions, size}
 
-Run build_topics.py first (produces topics.json with the materia classification).
+Run build_topics.py and build_clusters.py first.
 """
 import json, os, re, unicodedata
 from collections import defaultdict
@@ -88,6 +87,13 @@ def main():
     law_topics = topics['law_topics']                      # name -> cid
     continents = topics['continents']                      # cid -> {label,color,...}
 
+    # Semantic branches (build_clusters.py) drive the visualization colors + layout.
+    try:
+        cl = json.load(open(os.path.join(OUT, 'clusters.json'), encoding='utf-8'))
+        law_cluster, clusters, coords = cl['law_clusters'], cl['clusters'], cl['coords']
+    except FileNotFoundError:
+        law_cluster, clusters, coords = {}, {}, {}
+
     laws = corpus.load()                                   # name -> real full text
     names = list(laws)
     print(f"Laws with substantive body: {len(names)}")
@@ -151,19 +157,25 @@ def main():
                 'hover': {'background': dark, 'border': dark}}
 
     law_id = {n: f'law_{i}' for i, n in enumerate(names)}
-    nodes, edges, level_laws = [], [], defaultdict(list)
+    nodes, edges = [], []
 
     for n in names:
         cid = law_topics.get(n, 'otras')
         cont = continents.get(cid, {'label': 'Disposiciones Generales', 'color': '95a5a6'})
         deg = len(references[n]) + sum(1 for k in inst_keep if n in inst_keep[k][1])
         size = max(10, min(48, 10 + deg * 1.6))
+        # color/layout come from the semantic branch; materia stays as metadata
+        kid = law_cluster.get(n)
+        kmeta = clusters.get(kid, {}) if kid else {}
+        color_hex = kmeta.get('color') or cont['color']
         node = {'id': law_id[n], 'label': n[:LAW_LABEL_MAX], 'title': n, 'group': 'law',
                 'size': size, 'value': len(references[n]),
                 'continent': cid, 'continent_label': cont['label'], 'continent_color': cont['color'],
-                'color': color_obj(cont['color'])}
+                'cluster': kid, 'cluster_label': kmeta.get('label', ''),
+                'color': color_obj(color_hex)}
+        if n in coords:
+            node['x'], node['y'] = coords[n]
         nodes.append(node)
-        level_laws[cid].append(node)
 
     for key, (disp, docs) in inst_keep.items():
         eid = f'inst_{len(nodes)}'
@@ -181,20 +193,8 @@ def main():
           f"(ref {sum(len(v) for v in references.values())}, inst {len(edges)-sum(len(v) for v in references.values())})")
 
     # continent (level0) nodes
-    level0 = []
-    for cid, c in continents.items():
-        if not c.get('size'):
-            continue
-        level0.append({'id': f'cont_{cid}', 'label': c['label'], 'group': 'continent',
-                       'size': max(20, min(70, 15 + c['size'] * 1.2)), 'value': c['size'],
-                       'continent_id': cid, 'color': color_obj(c['color'])})
-
     full = {'nodes': nodes, 'edges': edges}
     json.dump(full, open(os.path.join(OUT, 'graph.json'), 'w', encoding='utf-8'), ensure_ascii=False)
-    json.dump({'level0': {'nodes': level0, 'edges': []}, 'full': full},
-              open(os.path.join(OUT, 'graph_multi.json'), 'w', encoding='utf-8'), ensure_ascii=False)
-    json.dump({'continents': dict(level_laws), 'law_topics': law_topics},
-              open(os.path.join(OUT, 'graph_levels.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 
     index = []
     for n in names:
@@ -211,7 +211,7 @@ def main():
     print("\nTop institutions (by #laws):")
     for k, (disp, docs) in top:
         print(f"  {len(docs):3d}  {disp}")
-    print(f"\nDone → graph.json, graph_multi.json, graph_levels.json, laws_index.json")
+    print(f"\nDone → graph.json, laws_index.json")
 
 if __name__ == '__main__':
     main()
