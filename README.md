@@ -19,12 +19,29 @@ para el chat.
 
 ## Origen y equipo
 
-Amoxtli nació en el **hackatón de la Escuela de Verano RIEEE del CIC**, de donde
-viene el dataset de legislación con el que trabaja. Lo construimos:
+Amoxtli nació en el **hackatón de la Escuela de Verano RIEEE del CIC**, que nos dio
+el dataset de legislación con el que trabaja.
 
-- **Germán Pancardo** — Ingeniería en Computación, UNAM.
-- **Karim Vallejo** — Física, Facultad de Ciencias, UNAM.
-- **Bruno Pancardo** — Derecho, UNITEC Campus Sur.
+- **Germán Pancardo** (Ingeniería en Computación, FES Aragón, UNAM) — tuvo la idea e
+  implementó todo el software: pipeline de datos, búsqueda, grafo, chat e interfaz.
+- **Karim Vallejo** (Física, Facultad de Ciencias, UNAM) — cuidó que la matemática y
+  el método tuvieran sentido.
+- **Bruno Pancardo** (Derecho, UNITEC Campus Sur) — propuso el problema, resolvió las
+  dudas jurídicas y revisó la solución.
+
+## El paper detrás del corpus
+
+El corpus viene de:
+
+> Martínez-Seis, B., Pichardo-Lagunas, O., Koff, H., Equihua, M., Pérez-Maqueo, O. y
+> Hernández-Huerta, A. (2022). *Unified, Labeled, and Semi-Structured Database of
+> Pre-Processed Mexican Laws*. **Data**, 7(7), 91.
+> <https://doi.org/10.3390/data7070091> (CC BY 4.0)
+
+Ese trabajo convirtió 305 documentos oficiales (Constitución, leyes, códigos federales)
+de PDF a texto plano, los unificó en una estructura JSON y los etiquetó con PLN. Amoxtli
+parte de ahí y agrega la limpieza del texto, los embeddings, las ramas semánticas, el
+grafo de citas y el asistente con citas.
 
 ## Modelo de lenguaje
 
