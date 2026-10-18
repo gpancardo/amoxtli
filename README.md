@@ -22,12 +22,9 @@ para el chat.
 Amoxtli nació en el **hackatón de la Escuela de Verano RIEEE del CIC**, que nos dio
 el dataset de legislación con el que trabaja.
 
-- **Germán Pancardo** (Ingeniería en Computación, FES Aragón, UNAM) — tuvo la idea e
-  implementó todo el software: pipeline de datos, búsqueda, grafo, chat e interfaz.
-- **Karim Vallejo** (Física, Facultad de Ciencias, UNAM) — cuidó que la matemática y
-  el método tuvieran sentido.
-- **Bruno Pancardo** (Derecho, UNITEC Campus Sur) — propuso el problema, resolvió las
-  dudas jurídicas y revisó la solución.
+- **Germán Pancardo** — Ingeniería en Computación
+- **Karim Vallejo** — Física
+- **Bruno Pancardo** — Derecho
 
 ## El paper detrás del corpus
 
